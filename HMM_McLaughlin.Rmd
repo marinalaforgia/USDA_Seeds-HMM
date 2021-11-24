@@ -8,7 +8,7 @@ output:
 ---
 
 Outstanding questions: 
-- If the models are going all the way to the 100th iteration, does that mean it is not converging and the steos should be lengthened?
+- If the models are going all the way to the 100th iteration, does that mean it is not converging and we should increase the number of steps?
 - What is a decent cutoff for how many plots a species needs to occur in out of 80 sites for a decent estimate? 
 
 # Markov Chain Parameter Functions
