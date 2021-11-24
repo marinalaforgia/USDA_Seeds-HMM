@@ -405,3 +405,101 @@ ggplot(mcl.df, aes(x = s, y = c, col = Grass.Forb.Shrub, group = Grass.Forb.Shru
   geom_smooth(method = "lm", formula = y ~ x)
 
 ```
+
+# Apply to Sonoran Desert dataset
+
+```{r, eval = F}
+
+# do I need to change these for my species?
+trueParam = numeric(0) #object grouping together the parameters and other quantities which depend on them.
+trueParam$c = 0.2      #colonization rate
+trueParam$g = 0.5      #germination rate (sigma)
+trueParam$r = 1        #reproductive rate (phi)
+trueParam$s = 0.5      #seed survival
+trueParam$p0 = 0.5     #initial state of the seed bank (probability that there were seeds in the soil the year before the first obs of existing flora)
+
+trueParam = makeParametersCalculations(trueParam)
+
+species.list <- readRDS("SD_Species-List-for-HMM_Site.RDS") 
+
+sd.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
+
+# Notes
+# Site version (the version specified here) took about 20 minutes or so
+# Also tried it on individual quads instead of sites, took about 12 hours
+
+for(j in names(species.list)){ # for each species
+  X = as.matrix(species.list[[j]]) # use their time series PA data
+  n = 5 # why n = 5?
+  p0Results = rep(0,n)
+  gResults = rep(0,n)
+  cResults = rep(0,n)
+  sResults = rep(0,n)
+  rResults = rep(0,n)
+  llResults = rep(0,n)
+  lltrueParam = rep(0,n)
+  
+  for (i in 1:n) {
+    for (k in 1:5) print(i) # I don't understand what's going on here, why print it 5 times?
+    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"
+    EMresult = EMestimation(X, r = 1) # update the model params, stop when new log likelihood is lower than the old log likelihood plus some precision 
+    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"; why is this on here twice?
+    # fill in results with new params from the best log likelihood model
+    p0Results[i] = EMresult$param$p0 # initial seed bank prob
+    gResults[i] = EMresult$param$g # germ
+    cResults[i] = EMresult$param$c #col
+    sResults[i] = EMresult$param$s #surv
+    rResults[i] = EMresult$param$r #prod
+    llResults[i] = EMresult$ll # log-likelihood
+    lltrueParam[i] = logLikelihood(X,trueParam) # log likelihood of x given "true" parameters
+  }
+
+  # here I assumed that the last estimated parameters, were what the model converged on but I'm not sure that's correct?
+  sd.df[sd.df$Species_Name == j,]$p0 <- EMresult$param$p0
+  sd.df[sd.df$Species_Name == j,]$g <- EMresult$param$g
+  sd.df[sd.df$Species_Name == j,]$c <- EMresult$param$c
+  sd.df[sd.df$Species_Name == j,]$s <- EMresult$param$s
+  sd.df[sd.df$Species_Name == j,]$r <- EMresult$param$r
+  
+}
+
+```
+
+Look at correlation between s and c!
+
+```{r, echo = F}
+library(ggplot2)
+sd.df <- readRDS("SD_HMM.RDS")
+
+ggplot(sd.df, aes(x = s, y = c)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x)
+
+# compare with actual seed survival
+surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv")
+surv <- merge(surv, sd.df[,c(1,5)], by.x = "Species", by.y = "Species_Name", all.y = F)
+
+ggplot(surv, aes(x = Surv, y = s)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  geom_label(aes(label = Species)) +
+  labs(x = "Seed survival (Fall)", y = "HMM-predicted seed survival") +
+  geom_abline(slope = 1, intercept = 0)
+
+```
+
+
+# Compare Desert and Grassland trade-off
+
+```{r, echo = F}
+
+sd.df$site <- "Desert"
+mcl.df$site <- "Grassland"
+
+gd <- rbind(sd.df, mcl.df[,c(1:6,12)])
+
+ggplot(gd, aes(x = s, y = c, col = site, group = site)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x)
+
+```
