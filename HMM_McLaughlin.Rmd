@@ -329,7 +329,6 @@ EMestimation = function(X, nIterations = 100, precision = 10^(-5), p0 = 'free', 
 
 # Apply to McLaughlin 80 Site dataset
 
-* Do I need to change the trueParams for each species? or are these just starting values?
 * Why does n = 5 and why print it out 5 times? 
 * Why print(logLikelihood(X, trueParam)) twice? this is the loglikelihood of the data given the true params
 * It's iterative in that it is going through the EM process of estimating these parameters given all the algorithms specified above, then updating the loglikelihood and comparing to the previous model, once it reaches a certain cutoff, it stops (hopefully before it gets to 100), then is starts over (it does this 5 times, for each n? k?) not from the previous estimates but from what?
@@ -337,11 +336,11 @@ EMestimation = function(X, nIterations = 100, precision = 10^(-5), p0 = 'free', 
 
 ```{r, eval = F}
 
-# do I need to change these for my species?
+# starting values. might not necessarily help much to change these, but we can try
 trueParam = numeric(0) #object grouping together the parameters and other quantities which depend on them.
 trueParam$c = 0.2      #colonization rate
 trueParam$g = 0.5      #germination rate (sigma)
-trueParam$r = 1        #reproductive rate (phi)
+trueParam$r = 1        #reproductive rate (phi) keep this at 1
 trueParam$s = 0.5      #seed survival
 trueParam$p0 = 0.5     #initial state of the seed bank (probability that there were seeds in the soil the year before the first obs of existing flora)
 
@@ -354,7 +353,6 @@ mcl.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = N
 
 # Notes
 # Site version (the version specified here) took about 20 minutes or so
-# Also tried it on individual quads instead of sites, took about 12 hours
 
 for(j in names(species.list)){ # for each species
   X = as.matrix(species.list[[j]]) # use their time series PA data
@@ -398,10 +396,17 @@ Look at correlation between s and c!
 ```{r, echo = F}
 library(ggplot2)
 mcl.df <- readRDS("POC_HMM_McL.RDS")
-#mcl.df <- readRDS("POC_HMM_McL_quad.RDS")
 ggplot(mcl.df, aes(x = s, y = c, col = Grass.Forb.Shrub, group = Grass.Forb.Shrub)) +
   geom_point() +
   geom_smooth(method = "lm", formula = y ~ x)
+
+ggplot(mcl.df, aes(x = Grass.Forb.Shrub, y = c)) +
+  geom_boxplot() +
+  facet_wrap(~Native.Exotic)
+
+ggplot(mcl.df, aes(x = Grass.Forb.Shrub, y = s)) +
+  geom_boxplot() +
+  facet_wrap(~Native.Exotic)
 
 ```
 
@@ -499,6 +504,14 @@ gd <- rbind(sd.df, mcl.df[,c(1:6,12)])
 
 ggplot(gd, aes(x = s, y = c, col = site, group = site)) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x)
+  geom_smooth(method = "lm", formula = y ~ x) 
+
+ggplot(gd, aes(x = site, y = c)) +
+  geom_boxplot() 
+
+ggplot(gd, aes(x = site, y = s)) +
+  geom_boxplot()
+
+# it's ok that we don;t see a tradeoff between g and s in the desert, g is the probability that a single seed is going to germinate at any given time, not the observed germination fraction that came out of the demographic data
 
 ```
