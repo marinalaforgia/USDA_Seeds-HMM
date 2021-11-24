@@ -15,12 +15,12 @@ This sets up a 2x2 matrix of seed bank transitions
 c = colonization probability
 g = germination probability
 s = seed survival probability
-r = seed production?
+r = seed production
 
-* (1,1): 1-c -> probability that plants don't colonize (so what is there is there)
-* (1,2): c -> colonization probability (probability that they do colonize)
-* (2,1): (1-c)x(1-s)x(1-gr) -> the probability that plants dont colonize, don't survive, and don't germinate/produce seeds
-* (2,2): 1 - ((1-c)x(1-s)x(1-gr)) -> the probability that seeds colonize, survive, and germinate?
+* (1,1): 1-c -> probability of going from no seedbank in year t to no seedbank in t+1
+* (1,2): c -> probability of going from no seedbank to a seedbank
+* (2,1): (1-c)x(1-s)x(1-gr) -> probability of going from a seed bank to no seedbank
+* (2,2): 1 - ((1-c)x(1-s)x(1-gr)) -> probability of going from a seed bank to a seedbank
 
 ```{r}
 
@@ -32,7 +32,7 @@ calculateQY = function(param) # calculate QY is a function of param; QY transiti
   result[1,1] = 1 - param$c # probability that plants don't colonize
   result[2,1] = (1 - param$c)*(1 - param$s)*(1 - param$g*param$r) # and the second row of the first column is (1-c) * (1-s) * (1-gF) = probability that seeds that don't colonize, dont survive, and don't germinate
   result[,2] = 1 - result[,1] # column 2 is the opposite of column one so that each row sums to 1
-  return(result) # I'm still unclear on what this matrix is exactly, it's seed bank transitions but there is something I am missing
+  return(result) # I'm still unclear on this matrix, I get that they have to sum to 1 but my probability intuition isn't that high
 }
 
 ```
@@ -48,7 +48,7 @@ Matrix of transitions Zt = (Yt-1, Xt) where Y(t-1) is the state of the seed bank
 calculateQZ = function(param) # Qz transition matrix
 {
   result = matrix(0,3,3) # 3 by 3 matrix of 0s
-  result[1,1] = 1 - param$c # probably seeds don't colonize
+  result[1,1] = 1 - param$c # probability seeds don't colonize
   result[2,1] = (1 - param$c)*(1 - param$s) # probability seeds don't colonize, and seeds that are there don't survive
   result[3,1] = (1 - param$c)*(1 - param$s)*(1 - param$r) # probability seeds dont colonize, seeds that are there don't survive and... wait what's r?
   result[,2] = (1 - result[,1])*(1 - param$g)
@@ -60,7 +60,7 @@ calculateQZ = function(param) # Qz transition matrix
 ## 3. Probability invariant of a transition matrix.  
 
 I'm not sure what a probability invariant matrix is or what it's purpose is.
-Is this the left eigenvector? the reproductive rate?
+Is this the left eigenvector? the reproductive rate? Either way I think this is calculating the equilibrium state of the system
 
 ```{r}
 
@@ -82,7 +82,7 @@ calculatePeq = function(Q)
 
 Add the object param these additional fields;
 
-Still not sure what PZeq and PYeq are
+Still not sure what PZeq and PYeq, though I suspect the equilibrium state of the system and the seedbank respectively
 
 ```{r}
 
@@ -91,7 +91,7 @@ makeParametersCalculations = function(param)
   param$QY = calculateQY(param) # calculate seed bank transitions (QY)
   param$QZ = calculateQZ(param) # calculate state transition probability matrix (QZ)
   param$PZeq = calculatePeq(param$QZ) # calculate the invariant of QZ transition matrix; equilibrium state?
-  param$PYeq = param$PZeq[2] + param$PZeq[3] # equilibrium state of seedbank?
+  param$PYeq = param$PZeq[2] + param$PZeq[3] # equilibrium state of seedbank?, this just uses the second and third value of the PZeq vector
   param$pZ0 = c(1-param$p0, param$p0*(1-param$g), param$p0*param$g) # initial distribution vector
   return(param) 
 }
