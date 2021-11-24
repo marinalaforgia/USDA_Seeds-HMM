@@ -7,6 +7,10 @@ output:
   pdf_document: default
 ---
 
+Outstanding questions: 
+- If the models are going all the way to the 100th iteration, does that mean it is not converging and the steos should be lengthened?
+- What is a decent cutoff for how many plots a species needs to occur in out of 80 sites for a decent estimate? 
+
 # Markov Chain Parameter Functions
 
 ## 1. Seedbank transitions
@@ -329,12 +333,47 @@ EMestimation = function(X, nIterations = 100, precision = 10^(-5), p0 = 'free', 
 
 # Grassland (McLaughlin)
 
+##1. Data prep
+* what is a good cut off for number of plots a species must be in to get decent estimates? I cut it off at 8 at the moment.
+
+```{r, echo = F}
+library(ggplot2)
+library(plyr)
+library(tidyverse)
+trait <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Modified_CombinedFiles/McL_80SitesSpeciesTraits_012615.csv")
+mcl <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Data-Storage-Files/Core_Community_Data2019.csv")
+#mcl <- filter(mcl, Species_Name != "Bare", Species_Name != "Rock", Species_Name != "Juncus sp.")
+mcl <- filter(mcl, Species_Name %in% trait[trait$Annual.Perennial == "Annual",]$Species_Name)
+mcl <- ddply(mcl, .(Site, Year, Species_Name), summarize, PA = 1)
+mcl <- pivot_wider(mcl, names_from = "Year", values_from = "PA")
+mcl <- as.data.frame(mcl)
+mcl[is.na(mcl)] <- 0
+
+species.list <- list()
+
+for(i in unique(mcl$Species_Name)) {
+  tmp <- filter(mcl, Species_Name == i)
+  tmp <- tmp[,-c(1:2)]
+  tmp <- tmp[ , sort(colnames(tmp))]
+  if(nrow(tmp) > 9) species.list[[i]] <- tmp # for now I got rid of species that were present in less than 8 sites throughout the entire time series, 167 species without down to 103, which is a lot, check with POC & Roger about a good cut-off
+}
+# 
+# df <- data.frame(names = NA, obs = NA)
+# 
+# for(i in names(species.list)) {
+#   df <- data.frame(rbind(df, c(names = i, obs = nrow(species.list[[i]]))))
+# }
+# df$obs <- as.numeric(as.character(df$obs))
+
+saveRDS(species.list, "McL_Species-List-for-HMM_Site.RDS")
+```
+
+##2. HMM on McLaughlin
 * Why does n = 5 and why print it out 5 times? 
 * Why print(logLikelihood(X, trueParam)) twice? this is the loglikelihood of the data given the true params
 * It's iterative in that it is going through the EM process of estimating these parameters given all the algorithms specified above, then updating the loglikelihood and comparing to the previous model, once it reaches a certain cutoff, it stops (hopefully before it gets to 100), then is starts over (it does this 5 times, for each n? k?) not from the previous estimates but from what?
 * Are the last estimates of the params the "final" estimates given the best log-likelihood?
-
-##1. HMM on McLaughlin
+* What happens if it gets through all 100 time steps, it just stops there even if it wasn't maximized right? Can we trust those values?
 ```{r, eval = F}
 
 # starting values. might not necessarily help much to change these, but we can try
@@ -392,12 +431,10 @@ for(j in names(species.list)){ # for each species
 ```
 
 
-##2. Graphical relationships
+##3. Graphical relationships
 
 ```{r, echo = F}
-library(ggplot2)
-library(tidyverse)
-trait <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Modified_CombinedFiles/McL_80SitesSpeciesTraits_012615.csv")
+#trait <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Modified_CombinedFiles/McL_80SitesSpeciesTraits_012615.csv")
 # mcl.df <- merge(mcl.df, trait[,c(1,3,17,18,19)], by = "Species_Name", all.y = F)
 # mcl.df <- filter(mcl.df, Annual.Perennial == "Annual")
 # mcl.df$FunGroup <- paste(mcl.df$Native.Exotic, mcl.df$Grass.Forb.Shrub)
@@ -417,13 +454,51 @@ ggplot(mcl.df, aes(x = Grass.Forb.Shrub, y = s)) +
 
 ```
 
-# Desert (Sonoran)
+# Desert (Tumamoc Hill)
 
-##1. HMM on Sonoran Desert
+##1. Data Prep
+
+```{r, echo = F}
+
+sd <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/CensusData.csv")
+
+remove <- c("CRsp", # removing species without precise IDs
+            "DA-SP",
+            "eriog",
+            "Eriog",
+            "ERIOG",
+            "LO-AS",
+            "LOsp",
+            "PHsp",
+            "PLsp",
+            "plsp",
+            "ersp",
+            "crsp"
+            )
+
+sd <-  filter(sd, !species %in% remove)
+sd.sum <- ddply(sd, .(Year, plot.habitat.replicate, species), summarize, PA = 1)
+
+sd.sum <- pivot_wider(sd.sum, names_from = "Year", values_from = "PA")
+sd.sum <- as.data.frame(sd.sum)
+sd.sum[is.na(sd.sum)] <- 0
+
+species.list <- list()
+
+for(i in unique(sd.sum$species)) {
+  tmp <- filter(sd.sum, species == i)
+  tmp <- tmp[,-c(1:2)]
+  tmp <- tmp[ , sort(colnames(tmp))]
+  if(nrow(tmp) > 9) species.list[[i]] <- tmp # apparently I used the same cut off here, have to look into that more closely
+}
+
+```
+
+
+##2. HMM on Sonoran Desert
 
 ```{r, eval = F}
 
-# do I need to change these for my species?
 trueParam = numeric(0) #object grouping together the parameters and other quantities which depend on them.
 trueParam$c = 0.2      #colonization rate
 trueParam$g = 0.5      #germination rate (sigma)
@@ -436,10 +511,6 @@ trueParam = makeParametersCalculations(trueParam)
 species.list <- readRDS("SD_Species-List-for-HMM_Site.RDS") 
 
 sd.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
-
-# Notes
-# Site version (the version specified here) took about 20 minutes or so
-# Also tried it on individual quads instead of sites, took about 12 hours
 
 for(j in names(species.list)){ # for each species
   X = as.matrix(species.list[[j]]) # use their time series PA data
@@ -467,7 +538,6 @@ for(j in names(species.list)){ # for each species
     lltrueParam[i] = logLikelihood(X,trueParam) # log likelihood of x given "true" parameters
   }
 
-  # here I assumed that the last estimated parameters, were what the model converged on but I'm not sure that's correct?
   sd.df[sd.df$Species_Name == j,]$p0 <- EMresult$param$p0
   sd.df[sd.df$Species_Name == j,]$g <- EMresult$param$g
   sd.df[sd.df$Species_Name == j,]$c <- EMresult$param$c
@@ -478,7 +548,7 @@ for(j in names(species.list)){ # for each species
 
 ```
 
-##2. Graphical Relationaships
+##3. Graphical Relationaships
 
 ```{r, echo = F}
 library(ggplot2)
