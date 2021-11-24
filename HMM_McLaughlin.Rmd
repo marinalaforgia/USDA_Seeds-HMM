@@ -616,6 +616,7 @@ for(j in names(species.list)){ # for each species
 ```
 
 ##3. Graphical relationships
+
 ```{r, echo = F}
 mcl.df.beg$tf <- "2000-2010"
 mcl.df.end$tf <- "2011-2019"
@@ -639,5 +640,14 @@ ggplot(mcl.df.split, aes(x = s, y = c, group = Species_Name)) +
 ggforce::geom_link2(aes(group = Species_Name, color = tf), size = 1, n = 500, lineend = "round") +
   facet_wrap(~FunGroup)
 
+# Colonization seems to decrease but seed survival is not necessarily increasing to compensate... next steps: adding seed traits!
+
+ggplot(mcl.df.split, aes(y = s, x = tf)) +
+  geom_boxplot() +
+  facet_wrap(~FunGroup)
+
+ggplot(mcl.df.split, aes(y = c, x = tf)) +
+  geom_boxplot() +
+  facet_wrap(~FunGroup)
 
 ```
