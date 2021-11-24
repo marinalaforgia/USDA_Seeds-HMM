@@ -380,15 +380,16 @@ for(j in names(species.list)){ # for each species
   }
 
   # here I assumed that the last estimated parameters, were what the model converged on but I'm not sure that's correct?
-  sd.df[sd.df$Species_Name == j,]$p0 <- EMresult$param$p0
-  sd.df[sd.df$Species_Name == j,]$g <- EMresult$param$g
-  sd.df[sd.df$Species_Name == j,]$c <- EMresult$param$c
-  sd.df[sd.df$Species_Name == j,]$s <- EMresult$param$s
-  sd.df[sd.df$Species_Name == j,]$r <- EMresult$param$r
+  mcl.df[mcl.df$Species_Name == j,]$p0 <- EMresult$param$p0
+  mcl.df[mcl.df$Species_Name == j,]$g <- EMresult$param$g
+  mcl.df[mcl.df$Species_Name == j,]$c <- EMresult$param$c
+  mcl.df[mcl.df$Species_Name == j,]$s <- EMresult$param$s
+  mcl.df[mcl.df$Species_Name == j,]$r <- EMresult$param$r
   
 }
 
 ```
+
 
 Look at correlation between s and c!
 
