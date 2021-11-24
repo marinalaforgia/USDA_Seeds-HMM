@@ -54,7 +54,7 @@ calculateQZ = function(param) # Qz transition matrix
   result = matrix(0,3,3) # 3 by 3 matrix of 0s
   result[1,1] = 1 - param$c # probability seeds don't colonize
   result[2,1] = (1 - param$c)*(1 - param$s) # probability seeds don't colonize, and seeds that are there don't survive
-  result[3,1] = (1 - param$c)*(1 - param$s)*(1 - param$r) # probability seeds dont colonize, seeds that are there don't survive and... wait what's r?
+  result[3,1] = (1 - param$c)*(1 - param$s)*(1 - param$r) # probability seeds dont colonize, seeds that are there don't survive and... wait what's r? should this be (1 - param$g*param$r)?? or just 1-param$g?
   result[,2] = (1 - result[,1])*(1 - param$g)
   result[,3] = (1 - result[,1])*param$g
   return(result)
