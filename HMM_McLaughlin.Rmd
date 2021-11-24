@@ -10,7 +10,7 @@ output:
 # Markov Chain Parameter Functions
 
 ## 1. Seedbank transitions
-This sets up a 2x2 matrix of seed bank transitions - I'm a little confused on this on what these values represent/how they are being used
+This sets up a 2x2 matrix of seed bank transitions
 
 c = colonization probability
 g = germination probability
@@ -90,8 +90,8 @@ makeParametersCalculations = function(param)
 {
   param$QY = calculateQY(param) # calculate seed bank transitions (QY)
   param$QZ = calculateQZ(param) # calculate state transition probability matrix (QZ)
-  param$PZeq = calculatePeq(param$QZ) # calculate the invariant of QZ transition matrix; equilibrium seed production?
-  param$PYeq = param$PZeq[2] + param$PZeq[3] # Is this the invariant of Y? 
+  param$PZeq = calculatePeq(param$QZ) # calculate the invariant of QZ transition matrix; equilibrium state?
+  param$PYeq = param$PZeq[2] + param$PZeq[3] # equilibrium state of seedbank?
   param$pZ0 = c(1-param$p0, param$p0*(1-param$g), param$p0*param$g) # initial distribution vector
   return(param) 
 }
@@ -340,7 +340,7 @@ EMestimation = function(X, nIterations = 100, precision = 10^(-5), p0 = 'free', 
 trueParam = numeric(0) #object grouping together the parameters and other quantities which depend on them.
 trueParam$c = 0.2      #colonization rate
 trueParam$g = 0.5      #germination rate (sigma)
-trueParam$r = 1        #reproductive rate (phi) keep this at 1
+trueParam$r = 1        #reproductive rate (phi) keep this at 1 (if a seed germinates and survives to flower, we assume it produces a seed)
 trueParam$s = 0.5      #seed survival
 trueParam$p0 = 0.5     #initial state of the seed bank (probability that there were seeds in the soil the year before the first obs of existing flora)
 
@@ -351,9 +351,8 @@ species.list <- readRDS("McL_Species-List-for-HMM_Site.RDS") # list; each object
 
 mcl.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
 
-# Notes
-# Site version (the version specified here) took about 20 minutes or so
 
+# Took about 20 minutes or so
 for(j in names(species.list)){ # for each species
   X = as.matrix(species.list[[j]]) # use their time series PA data
   n = 5 # why n = 5?
