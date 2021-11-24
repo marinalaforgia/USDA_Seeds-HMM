@@ -60,6 +60,7 @@ calculateQZ = function(param) # Qz transition matrix
 ## 3. Probability invariant of a transition matrix.  
 
 I'm not sure what a probability invariant matrix is or what it's purpose is.
+Is this the left eigenvector? the reproductive rate?
 
 ```{r}
 
@@ -89,7 +90,7 @@ makeParametersCalculations = function(param)
 {
   param$QY = calculateQY(param) # calculate seed bank transitions (QY)
   param$QZ = calculateQZ(param) # calculate state transition probability matrix (QZ)
-  param$PZeq = calculatePeq(param$QZ) # calculate the invariant of QZ transition matrix
+  param$PZeq = calculatePeq(param$QZ) # calculate the invariant of QZ transition matrix; equilibrium seed production?
   param$PYeq = param$PZeq[2] + param$PZeq[3] # Is this the invariant of Y? 
   param$pZ0 = c(1-param$p0, param$p0*(1-param$g), param$p0*param$g) # initial distribution vector
   return(param) 
@@ -347,11 +348,9 @@ trueParam$p0 = 0.5     #initial state of the seed bank (probability that there w
 trueParam = makeParametersCalculations(trueParam)
 
 species.list <- readRDS("McL_Species-List-for-HMM_Site.RDS") # list; each object is a dataframe of PA data for a single species where each row is a site and each column is a year
-# species.list <- readRDS("SD_Species-List-for-HMM_Site.RDS") 
 
 
 mcl.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
-# sd.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
 
 # Notes
 # Site version (the version specified here) took about 20 minutes or so
