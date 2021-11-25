@@ -70,12 +70,12 @@ Is this the left eigenvector? the reproductive rate? Either way I think this is 
 
 calculatePeq = function(Q)
 {
-  Vmat = eigen(t(Q))$vectors
-  #We look for an eigenvector whose components have the same sign and we renormalize it so that the sum makes 1
-  n = dim(Q)[1]
+  Vmat = eigen(t(Q))$vectors # extract the eigenvectors from QZ
+  #We look for an eigenvector whose components have the same sign and we renormalize it so that the sum makes 1 (this note confuses me)
+  n = dim(Q)[1] # n = number of rows in QZ = number of possible states
   for (i in 1:n)
   {
-    v = Vmat[,i]
+    v = Vmat[,i] 
     if ( all(sign(v)>=0) | all(sign(v)<=0) ) return(v/sum(v))
   }
 }
@@ -86,7 +86,7 @@ calculatePeq = function(Q)
 
 Add the object param these additional fields;
 
-Still not sure what PZeq and PYeq, though I suspect the equilibrium state of the system and the seedbank respectively
+Still not sure what PZeq and PYeq, though I suspect the equilibrium state of the system and the seedbank respectively, just not understanding how we get that
 
 ```{r}
 
