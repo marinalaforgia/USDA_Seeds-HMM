@@ -355,15 +355,15 @@ for(i in unique(mcl$Species_Name)) {
   tmp <- filter(mcl, Species_Name == i)
   tmp <- tmp[,-c(1:2)]
   tmp <- tmp[ , sort(colnames(tmp))]
-  if(nrow(tmp) > 9) species.list[[i]] <- tmp # for now I got rid of species that were present in less than 8 sites throughout the entire time series, 167 species without down to 103, which is a lot, check with POC & Roger about a good cut-off
+  if(nrow(tmp) > 3) species.list[[i]] <- tmp # for now I got rid of species that were present in less than 8 sites throughout the entire time series, 167 species without down to 103, which is a lot, check with POC & Roger about a good cut-off
 }
 # 
-# df <- data.frame(names = NA, obs = NA)
-# 
-# for(i in names(species.list)) {
-#   df <- data.frame(rbind(df, c(names = i, obs = nrow(species.list[[i]]))))
-# }
-# df$obs <- as.numeric(as.character(df$obs))
+df <- data.frame(names = NA, obs = NA)
+
+for(i in names(species.list)) {
+  df <- data.frame(rbind(df, c(names = i, obs = nrow(species.list[[i]]))))
+}
+df$obs <- as.numeric(as.character(df$obs))
 
 saveRDS(species.list, "McL_Species-List-for-HMM_Site.RDS")
 ```
@@ -559,7 +559,7 @@ ggplot(sd.df, aes(x = s, y = c)) +
   geom_smooth(method = "lm", formula = y ~ x)
 
 # compare with actual seed survival
-surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv")
+surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv") # try to calculate fall*winter and new seeds summer survival and fall winter old seeds 
 surv <- merge(surv, sd.df[,c(1,5)], by.x = "Species", by.y = "Species_Name", all.y = F)
 
 ggplot(surv, aes(x = Surv, y = s)) +
@@ -595,7 +595,7 @@ ggplot(gd, aes(x = site, y = s)) +
 
 ```
 
-# Climate Change
+# Climate Change (McLaughlin)
 Split up the time series to look at whether changes in climate (declining rainfall) in the grassland dataset has contributed to shifts in survival/colonization behavior
 
 2000-2010: higher av rainfall, lower variability
@@ -607,7 +607,7 @@ Split up the time series to look at whether changes in climate (declining rainfa
 mcl.df.beg <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
 
 for(j in names(species.list)){ # for each species
-  X = as.matrix(species.list[[j]][,1:10]) # use their time series PA data
+  X = as.matrix(species.list[[j]][,1:10]) # use their time series PA data first half of time series
   n = 5 # why n = 5?
   p0Results = rep(0,n)
   gResults = rep(0,n)
@@ -717,6 +717,132 @@ ggplot(mcl.df.split, aes(y = s, x = tf)) +
   facet_wrap(~FunGroup)
 
 ggplot(mcl.df.split, aes(y = c, x = tf)) +
+  geom_boxplot() +
+  facet_wrap(~FunGroup)
+
+```
+
+# Climate Change (Sonoran Desert)
+Split up the time series to look at whether changes in climate (declining rainfall) in the sonoran desert dataset has contributed to shifts in survival/colonization behavior
+
+1983-1999: higher av rainfall, lower variability
+2000-2016: lower av rainfall, higher variability
+
+##1. HMM on 1st half of time series
+```{r, echo = F}
+
+sd.df.beg <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
+
+for(j in names(species.list)){ # for each species
+  X = as.matrix(species.list[[j]][,1:17]) # use their time series PA data from first half
+  n = 5 # why n = 5?
+  p0Results = rep(0,n)
+  gResults = rep(0,n)
+  cResults = rep(0,n)
+  sResults = rep(0,n)
+  rResults = rep(0,n)
+  llResults = rep(0,n)
+  lltrueParam = rep(0,n)
+  
+  for (i in 1:n) {
+    for (k in 1:5) print(i) 
+    print(logLikelihood(X, trueParam)) 
+    EMresult = EMestimation(X, r = 1)  
+    print(logLikelihood(X, trueParam)) 
+    p0Results[i] = EMresult$param$p0 # initial seed bank prob
+    gResults[i] = EMresult$param$g # germ
+    cResults[i] = EMresult$param$c #col
+    sResults[i] = EMresult$param$s #surv
+    rResults[i] = EMresult$param$r #prod
+    llResults[i] = EMresult$ll # log-likelihood
+    lltrueParam[i] = logLikelihood(X,trueParam) # log likelihood of x given "true" parameters
+  }
+
+  sd.df.beg[sd.df.beg$Species_Name == j,]$p0 <- EMresult$param$p0
+  sd.df.beg[sd.df.beg$Species_Name == j,]$g <- EMresult$param$g
+  sd.df.beg[sd.df.beg$Species_Name == j,]$c <- EMresult$param$c
+  sd.df.beg[sd.df.beg$Species_Name == j,]$s <- EMresult$param$s
+  sd.df.beg[sd.df.beg$Species_Name == j,]$r <- EMresult$param$r
+  
+}
+```
+
+##2. HMM on 2nd half of time series
+
+```{r, echo = F}
+sd.df.end <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
+
+
+for(j in names(species.list)){ # for each species
+  X = as.matrix(species.list[[j]][,18:33]) # use their time series PA data
+  n = 5 # why n = 5?
+  p0Results = rep(0,n)
+  gResults = rep(0,n)
+  cResults = rep(0,n)
+  sResults = rep(0,n)
+  rResults = rep(0,n)
+  llResults = rep(0,n)
+  lltrueParam = rep(0,n)
+  
+  for (i in 1:n) {
+    for (k in 1:5) print(i) # I don't understand what's going on here, why print it 5 times?
+    print(j)
+    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"
+    EMresult = EMestimation(X, r = 1) # update the model params, stop when new log likelihood is lower than the old log likelihood plus some precision 
+    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"; why is this on here twice?
+    # fill in results with new params from the best log likelihood model
+    p0Results[i] = EMresult$param$p0 # initial seed bank prob
+    gResults[i] = EMresult$param$g # germ
+    cResults[i] = EMresult$param$c #col
+    sResults[i] = EMresult$param$s #surv
+    rResults[i] = EMresult$param$r #prod
+    llResults[i] = EMresult$ll # log-likelihood
+    lltrueParam[i] = logLikelihood(X,trueParam) # log likelihood of x given "true" parameters
+  }
+
+  # here I assumed that the last estimated parameters, were what the model converged on but I'm not sure that's correct?
+  sd.df.end[sd.df.end$Species_Name == j,]$p0 <- EMresult$param$p0
+  sd.df.end[sd.df.end$Species_Name == j,]$g <- EMresult$param$g
+  sd.df.end[sd.df.end$Species_Name == j,]$c <- EMresult$param$c
+  sd.df.end[sd.df.end$Species_Name == j,]$s <- EMresult$param$s
+  sd.df.end[sd.df.end$Species_Name == j,]$r <- EMresult$param$r
+  
+}
+
+```
+
+##3. Graphical relationships
+
+```{r, echo = F}
+sd.df.beg$tf <- "2000-2010"
+sd.df.end$tf <- "2011-2019"
+
+sd.df.split <- rbind(sd.df.beg, sd.df.end)
+
+ggplot(sd.df.split, aes(x = s, y = c, group = tf, col = tf)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x)
+
+sd.df.split <- merge(sd.df.split, trait[,c(1,3,17,18,19)], by = "Species_Name", all.y = F)
+sd.df.split <- filter(sd.df.split, Annual.Perennial == "Annual")
+sd.df.split$FunGroup <- paste(sd.df.split$Native.Exotic, sd.df.split$Grass.Forb.Shrub)
+
+ggplot(sd.df.split, aes(x = s, y = c, group = tf, col = tf)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  facet_wrap(~FunGroup)
+
+ggplot(sd.df.split, aes(x = s, y = c, group = Species_Name)) +
+ggforce::geom_link2(aes(group = Species_Name, color = tf), size = 1, n = 500, lineend = "round") +
+  facet_wrap(~FunGroup)
+
+# Colonization seems to decrease but seed survival is not necessarily increasing to compensate... next steps: adding seed traits!
+
+ggplot(sd.df.split, aes(y = s, x = tf)) +
+  geom_boxplot() +
+  facet_wrap(~FunGroup)
+
+ggplot(sd.df.split, aes(y = c, x = tf)) +
   geom_boxplot() +
   facet_wrap(~FunGroup)
 
