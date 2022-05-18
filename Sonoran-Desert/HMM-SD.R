@@ -12,7 +12,7 @@ trait <- read.csv("Data/Long-Term-Datasets/Sonoran-Desert/Species_list_2016_2.cs
 trait$Species_Name <- paste(trait$Genus, trait$Species)
 trait$FunGroup <- paste(trait$Native.Invasive, trait$Forb.Grass)
 
-remove <- c("CRsp", # removing 
+remove <- c("CRsp", # removing unidentified species and known perennials
             "DA-SP",
             "eriog",
             "Eriog",
@@ -41,7 +41,7 @@ for(i in unique(sd$species)) {
   tmp <- filter(sd, species == i)
   tmp <- tmp[,-c(1:2)]
   tmp <- tmp[ , sort(colnames(tmp))]
-  if(nrow(tmp) > 8) species.list[[i]] <- tmp 
+  if(nrow(tmp) > 8) species.list[[i]] <- tmp # gets rid of species that don't appear in more than 8 plots, can try messing with this
 }
 
 df <- data.frame(names = NA, obs = NA)
@@ -64,10 +64,8 @@ trueParam$p0 = 0.5     #initial state of the seed bank (probability that there w
 
 trueParam = makeParametersCalculations(trueParam)
 
-#species.list <- readRDS("McL_Species-List.RDS") # change depending on which one is being run; each object is a dataframe of PA data for a single species where each row is a site and each column is a year
 
-
-sd.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA, iter = NA) # empty df to fill with rates
+sd.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA, iter = NA) # empty df to fill with rates (iter = how many iterations it took the model to converge)
 
 for(j in names(species.list)){ # for each species
   X = as.matrix(species.list[[j]]) # use their time series PA data
@@ -81,10 +79,10 @@ for(j in names(species.list)){ # for each species
   lltrueParam = rep(0,n)
   
   for (i in 1:n) {
-    for (k in 1:5) print(i) # I don't understand what's going on here, why print it 5 times?
+    for (k in 1:5) print(i) 
     print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"
     EMresult = EMestimation(X, r = 1) # update the model params, stop when new log likelihood is lower than the old log likelihood plus some precision 
-    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"; why is this on here twice?
+    print(logLikelihood(X, trueParam)) 
     # fill in results with new params from the best log likelihood model
     p0Results[i] = EMresult$param$p0 # initial seed bank prob
     gResults[i] = EMresult$param$g # germ
@@ -104,7 +102,7 @@ for(j in names(species.list)){ # for each species
 }
 
 # remove species that didn't converge in 100 steps
-sd.df <- filter(sd.df, iter < 100)
+sd.df <- filter(sd.df, iter < 100) # can also change this, look at what species it is throwing away
 
 #### Explore Output ####
 colnames(sd.df)[1] <- "code.old"
@@ -112,17 +110,18 @@ sd.df <- merge(sd.df, trait[,c(3,4,13,14)], by.x = "code.old", by.y = "Species.c
 
 sd.df <- sd.df[,c(9,8,10,2:7)]
 
-saveRDS(sd.df, "HMMs/Sonoran-Desert/SD_HMM.RDS")
+saveRDS(sd.df, "Sonoran-Desert/SD_HMM.RDS")
 
 ggplot(sd.df, aes(x = s, y = c)) +
   #geom_point() +
   geom_text(aes(label = Code)) +
   geom_smooth(method = "lm", formula = y ~ x, se = F)
 
-
-## look at corr between actual (estimated?) seed survival and model
-surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv")
-surv <- merge(surv, sd.df[,c(1,5)], by.x = "Species", by.y = "Species_Name", all.y = F)
+#### Relationship to Seed Survival ####
+#sd.df <- readRDS("Sonoran-Desert/SD_HMM.RDS")
+surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv") # I think I just extracted these from a paper
+surv <- merge(surv, trait[,c(3,4)], by.x = "Species", by.y = "Species.code", all.y = F)
+surv <- merge(surv, sd.df, by = "Code", all.y = F)
 
 ggplot(surv, aes(x = Surv, y = s)) +
   geom_point() +
