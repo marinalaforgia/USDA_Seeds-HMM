@@ -117,17 +117,3 @@ ggplot(sd.df, aes(x = s, y = c)) +
   geom_text(aes(label = Code)) +
   geom_smooth(method = "lm", formula = y ~ x, se = F)
 
-#### Relationship to Seed Survival ####
-#sd.df <- readRDS("Sonoran-Desert/SD_HMM.RDS")
-surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv") # I think I just extracted these from a paper
-surv <- merge(surv, trait[,c(3,4)], by.x = "Species", by.y = "Species.code", all.y = F)
-surv <- merge(surv, sd.df, by = "Code", all.y = F)
-
-ggplot(surv, aes(x = Surv, y = s)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  geom_label(aes(label = Species)) +
-  labs(x = "Seed survival (Fall)", y = "HMM-predicted seed survival") +
-  geom_abline(slope = 1, intercept = 0)
-
-cor(surv$Surv, surv$s) #0.455
