@@ -1,5 +1,5 @@
 ---
-title: "HMM McLaughlin"
+title: "HMM Functions"
 author: "Marina LaForgia"
 date: "8/27/2021"
 output:
@@ -58,6 +58,7 @@ calculateQZ = function(param) # Qz transition matrix
   result[1,1] = 1 - param$c # AA to AA: probability seeds don't colonize
   result[2,1] = (1 - param$c)*(1 - param$s) # PA to AA: probability seeds don't colonize, and seeds that are there don't survive
   result[3,1] = (1 - param$c)*(1 - param$s)*(1 - param$r) # PP to AA; If r = 1, then this will always be zero. We assume that if a seed germinates and flowers it will produce a seed and if any seed is produced it goes into the seed bank (can't go from PP to AA), so why write out these other params? We can mess with r to see if things change, or we can change this to 0; Interesting because we could have the possibility that a seed is produced, but it colonizes a different location and thus DOESNT enter the seed bank
+  # maybe r = one because too many unestimable parameters
   result[,2] = (1 - result[,1])*(1 - param$g) #[1,2] = AA to PA: (1-g)*c; [2,2] = PA to PA = (1-g)(1-(1-c)(1-s)); [3,2] = PP to PA = (1-g)
   result[,3] = (1 - result[,1])*param$g #[1,3] = AA to PP = gc; [2,3] = PA to PP = g(1-(1-c)(1-s)); [3,3] = PP to PP = g
   return(result)
@@ -75,7 +76,7 @@ Is this the left eigenvector? the reproductive rate? Either way I think this is 
 calculatePeq = function(Q)
 {
   Vmat = eigen(t(Q))$vectors # extract the eigenvectors from QZ
-  #We look for an eigenvector whose components have the same sign and we renormalize it so that the sum makes 1 (this note confuses me)
+  #We look for an eigenvector whose components have the same sign and we renormalize it so that the sum makes 1 because all probabilities must sum to 1
   n = dim(Q)[1] # n = number of rows in QZ = number of possible states
   for (i in 1:n)
   {
@@ -83,6 +84,10 @@ calculatePeq = function(Q)
     if ( all(sign(v)>=0) | all(sign(v)<=0) ) return(v/sum(v))
   }
 }
+
+# finding the equilibirum probability of being in each state, there are 3 states depending on whether we are working with QZ or QY
+# stable distribution of states
+
 ```
 
 
@@ -200,7 +205,7 @@ returns the loglikelihood of the model from the forward backward algorithm
 
 ```{r}
 
-logLikelihood = function(X,param) ForwardBackward(X,param)$ll
+logLikelihood = function(X,param) ForwardBackward(X,param)$ll # extract log likelihood from final model
 
 ```
 
@@ -268,7 +273,7 @@ EMiteration = function(X, param, p0 = 'free', g = 'free', c = 'free', s = 'free'
 ## 7. Expected maximization estimation
 
 ```{r}
-EMestimation = function(X, nIterations = 100, precision = 10^(-5), p0 = 'free', g = 'free', c = 'free', s = 'free', r = 'free')
+EMestimation = function(X, nIterations = 150, precision = 10^(-5), p0 = 'free', g = 'free', c = 'free', s = 'free', r = 'free')
 {
   alwaysSeedSurvival = FALSE
   if (s == 1 | c == 1 | (g == 1 & r == 1))
@@ -330,274 +335,12 @@ EMestimation = function(X, nIterations = 100, precision = 10^(-5), p0 = 'free', 
   EMresult$ll = logLikelihood
   EMresult$param = param
   return(EMresult)
-}
-
-
-```
-
-# Grassland (McLaughlin)
-
-##1. Data prep
-* what is a good cut off for number of plots a species must be in to get decent estimates? I cut it off at 8 at the moment.
-
-```{r, echo = F}
-library(ggplot2)
-library(plyr)
-library(tidyverse)
-trait <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Modified_CombinedFiles/McL_80SitesSpeciesTraits_012615.csv")
-mcl <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Data-Storage-Files/Core_Community_Data2019.csv")
-#mcl <- filter(mcl, Species_Name != "Bare", Species_Name != "Rock", Species_Name != "Juncus sp.")
-mcl <- filter(mcl, Species_Name %in% trait[trait$Annual.Perennial == "Annual",]$Species_Name)
-mcl <- ddply(mcl, .(Site, Year, Species_Name), summarize, PA = 1)
-mcl <- pivot_wider(mcl, names_from = "Year", values_from = "PA")
-mcl <- as.data.frame(mcl)
-mcl[is.na(mcl)] <- 0
-
-species.list <- list()
-
-for(i in unique(mcl$Species_Name)) {
-  tmp <- filter(mcl, Species_Name == i)
-  tmp <- tmp[,-c(1:2)]
-  tmp <- tmp[ , sort(colnames(tmp))]
-  if(nrow(tmp) > 3) species.list[[i]] <- tmp # for now I got rid of species that were present in less than 8 sites throughout the entire time series, 167 species without down to 103, which is a lot, check with POC & Roger about a good cut-off
-}
-# 
-df <- data.frame(names = NA, obs = NA)
-
-for(i in names(species.list)) {
-  df <- data.frame(rbind(df, c(names = i, obs = nrow(species.list[[i]]))))
-}
-df$obs <- as.numeric(as.character(df$obs))
-
-saveRDS(species.list, "McL_Species-List-for-HMM_Site.RDS")
-```
-
-##2. HMM on McLaughlin
-* Why does n = 5 and why print it out 5 times? 
-* Why print(logLikelihood(X, trueParam)) twice? this is the loglikelihood of the data given the true params
-* It's iterative in that it is going through the EM process of estimating these parameters given all the algorithms specified above, then updating the loglikelihood and comparing to the previous model, once it reaches a certain cutoff, it stops (hopefully before it gets to 100), then is starts over (it does this 5 times, for each n? k?) not from the previous estimates but from what?
-* Are the last estimates of the params the "final" estimates given the best log-likelihood?
-* What happens if it gets through all 100 time steps, it just stops there even if it wasn't maximized right? Can we trust those values?
-```{r, eval = F}
-
-# starting values. might not necessarily help much to change these, but we can try
-trueParam = numeric(0) #object grouping together the parameters and other quantities which depend on them.
-trueParam$c = 0.2      #colonization rate
-trueParam$g = 0.5      #germination rate (sigma)
-trueParam$r = 1        #reproductive rate (phi) keep this at 1 (if a seed germinates and survives to flower, we assume it produces a seed)
-trueParam$s = 0.5      #seed survival
-trueParam$p0 = 0.5     #initial state of the seed bank (probability that there were seeds in the soil the year before the first obs of existing flora)
-
-trueParam = makeParametersCalculations(trueParam)
-
-species.list <- readRDS("McL_Species-List-for-HMM_Site.RDS") # list; each object is a dataframe of PA data for a single species where each row is a site and each column is a year
-
-
-mcl.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
-
-
-# Took about 20 minutes or so
-for(j in names(species.list)){ # for each species
-  X = as.matrix(species.list[[j]]) # use their time series PA data
-  n = 5 # why n = 5?
-  p0Results = rep(0,n)
-  gResults = rep(0,n)
-  cResults = rep(0,n)
-  sResults = rep(0,n)
-  rResults = rep(0,n)
-  llResults = rep(0,n)
-  lltrueParam = rep(0,n)
-  
-  for (i in 1:n) {
-    for (k in 1:5) print(i) # I don't understand what's going on here, why print it 5 times?
-    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"
-    EMresult = EMestimation(X, r = 1) # update the model params, stop when new log likelihood is lower than the old log likelihood plus some precision 
-    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"; why is this on here twice?
-    # fill in results with new params from the best log likelihood model
-    p0Results[i] = EMresult$param$p0 # initial seed bank prob
-    gResults[i] = EMresult$param$g # germ
-    cResults[i] = EMresult$param$c #col
-    sResults[i] = EMresult$param$s #surv
-    rResults[i] = EMresult$param$r #prod
-    llResults[i] = EMresult$ll # log-likelihood
-    lltrueParam[i] = logLikelihood(X,trueParam) # log likelihood of x given "true" parameters
-  }
-
-  # here I assumed that the last estimated parameters, were what the model converged on but I'm not sure that's correct?
-  mcl.df[mcl.df$Species_Name == j,]$p0 <- EMresult$param$p0
-  mcl.df[mcl.df$Species_Name == j,]$g <- EMresult$param$g
-  mcl.df[mcl.df$Species_Name == j,]$c <- EMresult$param$c
-  mcl.df[mcl.df$Species_Name == j,]$s <- EMresult$param$s
-  mcl.df[mcl.df$Species_Name == j,]$r <- EMresult$param$r
   
 }
 
-```
-
-
-##3. Graphical relationships
-
-```{r, echo = F}
-#trait <- read.csv("/Users/Marina/Google Drive/02_McLaughlin_80Sites_Organized/Modified_CombinedFiles/McL_80SitesSpeciesTraits_012615.csv")
-# mcl.df <- merge(mcl.df, trait[,c(1,3,17,18,19)], by = "Species_Name", all.y = F)
-# mcl.df <- filter(mcl.df, Annual.Perennial == "Annual")
-# mcl.df$FunGroup <- paste(mcl.df$Native.Exotic, mcl.df$Grass.Forb.Shrub)
-
-mcl.df <- readRDS("POC_HMM_McL.RDS")
-ggplot(mcl.df, aes(x = s, y = c, col = Grass.Forb.Shrub, group = Grass.Forb.Shrub)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x)
-
-ggplot(mcl.df, aes(x = Grass.Forb.Shrub, y = c)) +
-  geom_boxplot() +
-  facet_wrap(~Native.Exotic)
-
-ggplot(mcl.df, aes(x = Grass.Forb.Shrub, y = s)) +
-  geom_boxplot() +
-  facet_wrap(~Native.Exotic)
 
 ```
 
-# Desert (Tumamoc Hill)
-
-##1. Data Prep
-
-```{r, echo = F}
-
-sd <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/CensusData.csv")
-
-remove <- c("CRsp", # removing species without precise IDs
-            "DA-SP",
-            "eriog",
-            "Eriog",
-            "ERIOG",
-            "LO-AS",
-            "LOsp",
-            "PHsp",
-            "PLsp",
-            "plsp",
-            "ersp",
-            "crsp"
-            )
-
-sd <-  filter(sd, !species %in% remove)
-sd.sum <- ddply(sd, .(Year, plot.habitat.replicate, species), summarize, PA = 1)
-
-sd.sum <- pivot_wider(sd.sum, names_from = "Year", values_from = "PA")
-sd.sum <- as.data.frame(sd.sum)
-sd.sum[is.na(sd.sum)] <- 0
-
-species.list <- list()
-
-for(i in unique(sd.sum$species)) {
-  tmp <- filter(sd.sum, species == i)
-  tmp <- tmp[,-c(1:2)]
-  tmp <- tmp[ , sort(colnames(tmp))]
-  if(nrow(tmp) > 9) species.list[[i]] <- tmp # apparently I used the same cut off here, have to look into that more closely
-}
-
-```
-
-
-##2. HMM on Sonoran Desert
-
-```{r, eval = F}
-
-trueParam = numeric(0) #object grouping together the parameters and other quantities which depend on them.
-trueParam$c = 0.2      #colonization rate
-trueParam$g = 0.5      #germination rate (sigma)
-trueParam$r = 1        #reproductive rate (phi)
-trueParam$s = 0.5      #seed survival
-trueParam$p0 = 0.5     #initial state of the seed bank (probability that there were seeds in the soil the year before the first obs of existing flora)
-
-trueParam = makeParametersCalculations(trueParam)
-
-species.list <- readRDS("SD_Species-List-for-HMM_Site.RDS") 
-
-sd.df <- expand.grid(Species_Name = names(species.list), p0 = NA, g = NA, c = NA, s = NA, r = NA) # empty df to fill with rates
-
-for(j in names(species.list)){ # for each species
-  X = as.matrix(species.list[[j]]) # use their time series PA data
-  n = 5 # why n = 5?
-  p0Results = rep(0,n)
-  gResults = rep(0,n)
-  cResults = rep(0,n)
-  sResults = rep(0,n)
-  rResults = rep(0,n)
-  llResults = rep(0,n)
-  lltrueParam = rep(0,n)
-  
-  for (i in 1:n) {
-    for (k in 1:5) print(i) # I don't understand what's going on here, why print it 5 times?
-    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"
-    EMresult = EMestimation(X, r = 1) # update the model params, stop when new log likelihood is lower than the old log likelihood plus some precision 
-    print(logLikelihood(X, trueParam)) # print the log-likelihood given the "true params"; why is this on here twice?
-    # fill in results with new params from the best log likelihood model
-    p0Results[i] = EMresult$param$p0 # initial seed bank prob
-    gResults[i] = EMresult$param$g # germ
-    cResults[i] = EMresult$param$c #col
-    sResults[i] = EMresult$param$s #surv
-    rResults[i] = EMresult$param$r #prod
-    llResults[i] = EMresult$ll # log-likelihood
-    lltrueParam[i] = logLikelihood(X,trueParam) # log likelihood of x given "true" parameters
-  }
-
-  sd.df[sd.df$Species_Name == j,]$p0 <- EMresult$param$p0
-  sd.df[sd.df$Species_Name == j,]$g <- EMresult$param$g
-  sd.df[sd.df$Species_Name == j,]$c <- EMresult$param$c
-  sd.df[sd.df$Species_Name == j,]$s <- EMresult$param$s
-  sd.df[sd.df$Species_Name == j,]$r <- EMresult$param$r
-  
-}
-
-```
-
-##3. Graphical Relationaships
-
-```{r, echo = F}
-library(ggplot2)
-sd.df <- readRDS("SD_HMM.RDS")
-
-ggplot(sd.df, aes(x = s, y = c)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x)
-
-# compare with actual seed survival
-surv <- read.csv("/Users/Marina/Documents/USDA-PostDoc/Projects/Sonoran-Desert/SD_Seed-survival.csv") # try to calculate fall*winter and new seeds summer survival and fall winter old seeds 
-surv <- merge(surv, sd.df[,c(1,5)], by.x = "Species", by.y = "Species_Name", all.y = F)
-
-ggplot(surv, aes(x = Surv, y = s)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  geom_label(aes(label = Species)) +
-  labs(x = "Seed survival (Fall)", y = "HMM-predicted seed survival") +
-  geom_abline(slope = 1, intercept = 0)
-
-```
-
-
-# System comparison
-
-```{r, echo = F}
-
-sd.df$site <- "Desert"
-mcl.df$site <- "Grassland"
-
-gd <- rbind(sd.df, mcl.df[,c(1:6,12)])
-
-ggplot(gd, aes(x = s, y = c, col = site, group = site)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x) 
-
-ggplot(gd, aes(x = site, y = c)) +
-  geom_boxplot() 
-
-ggplot(gd, aes(x = site, y = s)) +
-  geom_boxplot()
-
-# it's ok that we don;t see a tradeoff between g and s in the desert, g is the probability that a single seed is going to germinate at any given time, not the observed germination fraction that came out of the demographic data
-
-```
 
 # Climate Change (McLaughlin)
 Split up the time series to look at whether changes in climate (declining rainfall) in the grassland dataset has contributed to shifts in survival/colonization behavior
