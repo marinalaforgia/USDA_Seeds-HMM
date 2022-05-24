@@ -1,11 +1,11 @@
 #### Sonoran Desert HMM ####
 rm(list=ls())
-source("HMMs/HMM_Functions.R")
+source("./HMM_Functions.R") #making path relative
 
 #### Load Libraries ####
 library(ggplot2)
 library(tidyverse)
-
+library(plyr)
 #### Prep Data ####
 sd <- read.csv("Data/Long-Term-Datasets/Sonoran-Desert/CensusData.csv")
 trait <- read.csv("Data/Long-Term-Datasets/Sonoran-Desert/Species_list_2016_2.csv")
@@ -111,7 +111,7 @@ sd.df <- merge(sd.df, trait[,c(3,4,13,14)], by.x = "code.old", by.y = "Species.c
 sd.df <- sd.df[,c(9,8,10,2:7)]
 
 saveRDS(sd.df, "Sonoran-Desert/SD_HMM.RDS")
-
+#sd.df = readRDS("Sonoran-Desert/SD_HMM.RDS")
 ggplot(sd.df, aes(x = s, y = c)) +
   #geom_point() +
   geom_text(aes(label = Code)) +
