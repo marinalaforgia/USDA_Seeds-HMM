@@ -102,17 +102,19 @@ for(j in names(species.list)){ # for each species
 }
 
 # remove species that didn't converge in 100 steps
-sd.df <- filter(sd.df, iter < 100) # can also change this, look at what species it is throwing away
+sd.df2 <- filter(sd.df, iter < 100) # can also change this, look at what species it is throwing away
 
 #### Explore Output ####
-colnames(sd.df)[1] <- "code.old"
-sd.df <- merge(sd.df, trait[,c(3,4,13,14)], by.x = "code.old", by.y = "Species.code")
+colnames(sd.df2)[1] <- "code.old"
+sd.df2 <- merge(sd.df2, trait[,c(3,4,13,14)], by.x = "code.old", by.y = "Species.code")
 
-sd.df <- sd.df[,c(9,8,10,2:7)]
+sd.df2 <- sd.df2[,c(9,8,10,2:7)]
 
-saveRDS(sd.df, "Sonoran-Desert/SD_HMM.RDS")
+saveRDS(sd.df2, "Sonoran-Desert/SD_HMM.RDS")
+saveRDS(sd.df, "Sonoran-Desert/SD_HMM_all.RDS")
+
 #sd.df = readRDS("Sonoran-Desert/SD_HMM.RDS")
-ggplot(sd.df, aes(x = s, y = c)) +
+ggplot(sd.df2, aes(x = s, y = c)) +
   #geom_point() +
   geom_text(aes(label = Code)) +
   geom_smooth(method = "lm", formula = y ~ x, se = F)
