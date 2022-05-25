@@ -113,7 +113,8 @@ sd.df2 <- sd.df2[,c(9,8,10,2:7)]
 #saveRDS(sd.df2, "Sonoran-Desert/SD_HMM.RDS") #tried not to save over Marina's files.  I think the results change a bit each time I run them?  But maybe I changed something...
 #saveRDS(sd.df, "Sonoran-Desert/SD_HMM_all.RDS")
 
-#sd.df = readRDS("Sonoran-Desert/SD_HMM.RDS")
+#sd.df2 = readRDS("Sonoran-Desert/SD_HMM.RDS")
+#sd.df = readRDS("Sonoran-Desert/SD_HMM_all.RDS")
 ggplot(sd.df2, aes(x = s, y = c)) +
   #geom_point() +
   geom_text(aes(label = Code)) +
